@@ -8,8 +8,7 @@ import (
 type CheckMove2 struct {
 	Xindex int64
 	Yindex int64
-	M1Map  map[int]map[int64]int //можно ли как-то улучшить запись чтобы было нагляднее?
-	M2Map  map[int]map[int64]int
+	Move   []int64
 }
 
 //Userchoise is ...
@@ -83,12 +82,7 @@ func main() {
 
 func makeMove(p *Coordinats, occ []int64, x Userchoise, y Userchoise) {
 
-	//var mNew CheckMove2
-
-	move1 := make(map[int]map[int64]int)
-	move1[1] = make(map[int64]int)
-	move2 := make(map[int]map[int64]int)
-	move2[2] = make(map[int64]int)
+	var mNew CheckMove2
 
 	maxNumber, minNumber := findMaxMin(x.Cname, y.Cname)               //определяем допустимые варианты по номерам
 	maxIndex, minIndex := findMaxMin(int64(x.Cindex), int64(y.Cindex)) //определяем допустимые варианты по колонкам
@@ -111,22 +105,23 @@ func makeMove(p *Coordinats, occ []int64, x Userchoise, y Userchoise) {
 				continue
 			}
 
-			if len(move1) == 0 {
-				move1[1][zn] = ind
-				continue
-			}
-
-			move2[2][zn] = ind
-			// mNew = CheckMove2{
-			// 	Xindex: int64(x.Cindex),
-			// 	Yindex: int64(y.Cindex),
-			// 	M1Map:  move1,
-			// 	M2Map:  move2,
+			// if len(move1) == 0 {
+			// 	move1[1] = make(map[int64]int) //инициализируем внутреннюю мапу
+			// 	move1[1][zn] = ind
+			// 	continue
 			// }
 
-			//testMove2(mNew)
-			//проверяем, подходит ли нам вторая координата (стоит ли она рядом, можем ли мы походить буквой "г")
+			// move2[2] = make(map[int64]int)
+			// move2[2][zn] = ind
 
+			mNew = CheckMove2{
+				Xindex: int64(x.Cindex),
+				Yindex: int64(y.Cindex),
+				M1Map:  move1,
+				M2Map:  move2,
+			}
+
+			testMove2(mNew) //проверяем, подходит ли нам вторая координата (стоит ли она рядом, можем ли мы походить буквой "г")
 			//тут проверяем, одинаковые ли индексы у первых записей?
 
 			fmt.Println(move1, move2)
@@ -151,7 +146,11 @@ func testAlreadyOccupied(zn int64, occ []int64) bool { //как сравнить
 	return false
 }
 
-func testMove2(mNew CheckMove2) {
+func testMove2(m *CheckMove2) {
+
+	if m.Xindex == m.Yindex { //в этом случае индексы выбора не должны быть одинаковы
+
+	}
 
 }
 
