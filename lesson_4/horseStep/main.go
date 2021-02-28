@@ -39,6 +39,19 @@ type VarPoint struct {
 //VaryablesField is ...
 type VaryablesField []VarPoint
 
+//BorderForStep is...
+type BorderForStep []Coordinata //сюда закинем границы для определения хода.
+
+//TestStep is ...
+type TestStep struct { //тестируем возможность хода
+	VaryablesField []VarPoint
+	xchoise        Userchoise
+	ychoise        Userchoise
+	result1        Coordinata
+	result2        Coordinata
+	borders        BorderForStep
+}
+
 func main() {
 
 	// fmt.Println("Укажите стартовые клетки для положения коня")
@@ -76,25 +89,73 @@ func main() {
 		return
 	}
 
+	mstep := TestStep{
+		VaryablesField: varyables,
+		xchoise:        x,
+		ychoise:        y,
+	}
+
+	var borders BorderForStep
+	makeStep(&mstep, borders)
+
 	//occ.addOcc(x.Cnum,y.Cnum) //передаем координаты выбора в занятые клетки
 	//occupiedMoves(x, y)
 
-	makeStep(&varyables, x, y)
 }
 
-func makeStep(v *VaryablesField, x Userchoise, y Userchoise) {
+func makeStep(m *TestStep, borders BorderForStep) {
 
-	var result1, result2 Coordinata //2 оставшиеся координаты предполагаемого хода.
+	var mayMove bool
 
-	maxRow, minRow := findMaxMinRow(x.uRow, y.uRow, len(*v)-1) //определяем допустимые варианты по номерам
-	maxIndex, minIndex := findMaxMinIndex(x.uInd, y.uInd)      //определяем допустимые варианты по колонкам
+	if len(borders) == 0 {
+		borders = findBordersForStep(m)
+	}
+
+	for i := 0; i <= len(borders)-1; i++ {
+
+		if _, ok := m.result1.cNum["Num"]; !ok { //проверяем структуру на пустоту, если пустая, то заполняем.
+			m.result1 = fillCoordinata(borders[i].cRow["Row"], borders[i].cNum["Num"], borders[i].cInd["Ind"]) //это будет первая координата.
+			continue
+		}
+
+		m.result2 = fillCoordinata(borders[i].cRow["Row"], borders[i].cNum["Num"], borders[i].cInd["Ind"]) //заполняем вторую предположительную координату хода.
+
+		mayMove = checkStep(m.result1, m.result2, m.xchoise, m.ychoise) //здесь есть возможность - проба загнать все в одну структуру
+		if mayMove {                                                    //если результат - верный, то прерываем.
+			fmt.Println(mayMove, m.result1.cNum["Num"], m.result2.cNum["Num"], m.xchoise.uNum, m.ychoise.uNum)
+			break
+		}
+	}
+
+	if !mayMove {
+
+		borders = borders[1 : len(borders)-1] //уменьшаем слайс
+		m.result1.cRow = make(map[string]int) //очищаем мап.
+		m.result1.cNum = make(map[string]int)
+		m.result1.cInd = make(map[string]int)
+
+		makeStep(m, borders)
+		return
+	}
+}
+
+//получаем предварительные границы. Чтобы понимать возможные границы хода.
+func findBordersForStep(m *TestStep) BorderForStep {
+	//func findBordersForStep(v *VaryablesField, x Userchoise, y Userchoise) BorderForStep {
+
+	//var result1, result2 Coordinata //2 оставшиеся координаты предполагаемого хода.
+
+	var borderSlice BorderForStep
+
+	maxRow, minRow := findMaxMinRow(m.xchoise.uRow, m.ychoise.uRow, len(m.VaryablesField)-1) //определяем допустимые варианты по номерам
+	maxIndex, minIndex := findMaxMinIndex(m.xchoise.uInd, m.ychoise.uInd)                    //определяем допустимые варианты по колонкам
 
 	for row := minRow; row <= (maxRow); row++ {
-		thisRow := (*v)[row]
+		thisRow := (m.VaryablesField)[row]
 
 		for ind, num := range thisRow.NumsRow {
 
-			if num == x.uNum || num == y.uNum { //2 следующие координаты не должны быть равны двум выбранным (от которых отталкиваемся)
+			if num == m.xchoise.uNum || num == m.ychoise.uNum { //2 следующие координаты не должны быть равны двум выбранным (от которых отталкиваемся)
 				continue
 			}
 
@@ -102,30 +163,14 @@ func makeStep(v *VaryablesField, x Userchoise, y Userchoise) {
 				continue
 			}
 
-			//occupied := testAlreadyOccupied(num, occ) //проверка не являются ли уже занятыми координаты
-			//if occupied {
-			//	continue
-			//}
-
-			if _, ok := result1.cNum["Num"]; !ok { //проверяем структуру на пустоту, если пустая, то заполняем.
-				result1 = fillCoordinata(row, num, ind) //это будет первая координата.
-				continue
-			}
-			result2 = fillCoordinata(row, num, ind) //заполняем вторую предположительную координату хода.
-
-			mayMove := checkStep(result1, result2, x, y)                                   //здесь есть возможность - проба загнать все в одну структуру
-			fmt.Println(mayMove, result1.cNum["Num"], result2.cNum["Num"], x.uNum, y.uNum) //затем уже тестить её через функцию метод.
-			if mayMove {
-				//fmt.Println(mayMove, result1.cNum["Num"], result2.cNum["Num"], x.uNum, y.uNum)
-
-				//еще нужно сделать вариант, чтобы все проверялись.
-				//записываем ячейки в занятые.
-				//можно делать ход и записывать в занятые ячейки.
-			}
+			result := fillCoordinata(row, num, ind) //заполняем координату
+			borderSlice = append(borderSlice, result)
 
 		}
 
 	}
+
+	return borderSlice
 
 }
 
