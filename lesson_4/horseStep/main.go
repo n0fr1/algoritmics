@@ -44,12 +44,14 @@ type BorderForStep []Coordinata //сюда закинем границы для 
 
 //TestStep is ...
 type TestStep struct { //тестируем возможность хода
-	VaryablesField []VarPoint
-	xchoise        Userchoise
-	ychoise        Userchoise
-	result1        Coordinata
-	result2        Coordinata
-	borders        BorderForStep
+	Variants VaryablesField
+	xchoise  Userchoise
+	ychoise  Userchoise
+	result1  Coordinata
+	result2  Coordinata
+	borders  BorderForStep
+	mayMove  bool
+	testtt   int
 }
 
 func main() {
@@ -90,9 +92,11 @@ func main() {
 	}
 
 	mstep := TestStep{
-		VaryablesField: varyables,
-		xchoise:        x,
-		ychoise:        y,
+		Variants: varyables,
+		xchoise:  x,
+		ychoise:  y,
+		mayMove:  true,
+		testtt:   0,
 	}
 
 	var borders BorderForStep
@@ -105,13 +109,21 @@ func main() {
 
 func makeStep(m *TestStep, borders BorderForStep) {
 
-	var mayMove bool
+	//var mayMove bool
 
-	if len(borders) == 0 {
+	if m.mayMove { //вначале определяем границы хода
 		borders = findBordersForStep(m)
 	}
 
-	for i := 0; i <= len(borders)-1; i++ {
+	var lenBorders int
+
+	if len(borders) == 0 {
+		lenBorders = 0
+	} else {
+		lenBorders = len(borders) - 1
+	}
+
+	for i := 0; i <= lenBorders; i++ {
 
 		if _, ok := m.result1.cNum["Num"]; !ok { //проверяем структуру на пустоту, если пустая, то заполняем.
 			m.result1 = fillCoordinata(borders[i].cRow["Row"], borders[i].cNum["Num"], borders[i].cInd["Ind"]) //это будет первая координата.
@@ -120,22 +132,126 @@ func makeStep(m *TestStep, borders BorderForStep) {
 
 		m.result2 = fillCoordinata(borders[i].cRow["Row"], borders[i].cNum["Num"], borders[i].cInd["Ind"]) //заполняем вторую предположительную координату хода.
 
-		mayMove = checkStep(m.result1, m.result2, m.xchoise, m.ychoise) //здесь есть возможность - проба загнать все в одну структуру
-		if mayMove {                                                    //если результат - верный, то прерываем.
-			fmt.Println(mayMove, m.result1.cNum["Num"], m.result2.cNum["Num"], m.xchoise.uNum, m.ychoise.uNum)
+		m.mayMove = checkStep(m.result1, m.result2, m.xchoise, m.ychoise) //здесь есть возможность - проба загнать все в одну структуру
+
+		if m.mayMove { //если ход можно сделать, то прерываем.
+
+			delCoordinats(m) //Занятые по ходу позиции удаляем из поля возможных вариантов.
+
+			fmt.Println(m.mayMove, m.result1.cNum["Num"], m.result2.cNum["Num"], m.xchoise.uNum, m.ychoise.uNum)
+			fmt.Println(m.Variants)
+
+			clearResult(&m.result1)
+			clearResult(&m.result2)
+
+			m.xchoise, m.ychoise = findXY(m) //нужно также определить новые две точки x и y.
+			m.testtt = 0                     //обнуляем, ход сделан.
+			makeStep(m, borders)             //снова запуск makeStep.
+
 			break
 		}
 	}
 
-	if !mayMove {
+	m.testtt++ //стартовая точка отсчета
 
-		borders = borders[1 : len(borders)-1] //уменьшаем слайс
-		m.result1.cRow = make(map[string]int) //очищаем мап.
-		m.result1.cNum = make(map[string]int)
-		m.result1.cInd = make(map[string]int)
+	if !m.mayMove {
+
+		if m.testtt == 3 {
+			return
+		}
+
+		//if !mayMove && len(borders) != 0 {
+		//fmt.Println("do ", borders)
+
+		if len(borders) >= m.testtt {
+			borders = borders[m.testtt:] //каждый раз уменьшаем слайс (сначала)
+		}
+
+		clearResult(&m.result1) //очищаем мап только первой координаты
+
+		//fmt.Println("after ", borders)
 
 		makeStep(m, borders)
 		return
+	}
+
+	// if len(borders) == 0 {
+	// 	fmt.Println("нет возможности заполнить!")
+	// }
+}
+
+func findXY(m *TestStep) (Userchoise, Userchoise) {
+
+	var testPosition bool
+	var x, y Userchoise
+
+	x1 := make(map[string]int)
+	var x2 int
+
+	for v := 0; v <= len(m.Variants)-1; v++ { //тут надо ограничить. закинуть в отдельную функцию.
+
+		thisRow := m.Variants[v].NumsRow
+
+		for _, num := range thisRow {
+
+			if _, ok := x1["num"]; !ok { //проверяем структуру на пустоту, если пустая, то заполняем.
+				x1["num"] = num
+				continue
+			}
+
+			x2 = num
+
+			testPosition, x, y = checkChoice(&m.Variants, x1["num"], x2)
+			if testPosition {
+				break
+			}
+
+		}
+
+		if testPosition {
+			break
+		}
+
+	}
+
+	return x, y
+}
+
+func clearResult(r *Coordinata) {
+
+	r.cRow = make(map[string]int) //очищаем мап.
+	r.cNum = make(map[string]int)
+	r.cInd = make(map[string]int)
+}
+
+//удаляем лишние.
+func delCoordinats(m *TestStep) {
+
+	var lenVariants int
+
+	if len(m.Variants) == 0 {
+		lenVariants = 0
+	} else {
+		lenVariants = len(m.Variants) - 1
+	}
+
+	for v := 0; v <= lenVariants; v++ { //тут надо ограничить. закинуть в отдельную функцию.
+
+		thisRow := m.Variants[v].NumsRow
+		if len(thisRow) == 0 {
+			continue
+		}
+
+		for ind, num := range thisRow {
+
+			if num == m.result1.cNum["Num"] || num == m.result2.cNum["Num"] || num == m.xchoise.uNum || num == m.ychoise.uNum {
+
+				thisRow[ind] = thisRow[len(thisRow)-1]                                       //заменяем на последний
+				m.Variants[v].NumsRow = m.Variants[v].NumsRow[:len(m.Variants[v].NumsRow)-1] //удаляем последний ????
+			}
+
+		}
+
 	}
 }
 
@@ -147,11 +263,19 @@ func findBordersForStep(m *TestStep) BorderForStep {
 
 	var borderSlice BorderForStep
 
-	maxRow, minRow := findMaxMinRow(m.xchoise.uRow, m.ychoise.uRow, len(m.VaryablesField)-1) //определяем допустимые варианты по номерам
-	maxIndex, minIndex := findMaxMinIndex(m.xchoise.uInd, m.ychoise.uInd)                    //определяем допустимые варианты по колонкам
+	var lenVariants int
+
+	if len(m.Variants) == 0 {
+		lenVariants = 0
+	} else {
+		lenVariants = len(m.Variants) - 1
+	}
+
+	maxRow, minRow := findMaxMinRow(m.xchoise.uRow, m.ychoise.uRow, lenVariants)       //определяем допустимые варианты по номерам
+	maxIndex, minIndex := findMaxMinIndex(m.xchoise.uInd, m.ychoise.uInd, lenVariants) //определяем допустимые варианты по колонкам
 
 	for row := minRow; row <= (maxRow); row++ {
-		thisRow := (m.VaryablesField)[row]
+		thisRow := (m.Variants)[row]
 
 		for ind, num := range thisRow.NumsRow {
 
@@ -171,7 +295,6 @@ func findBordersForStep(m *TestStep) BorderForStep {
 	}
 
 	return borderSlice
-
 }
 
 func fillCoordinata(row, num, ind int) Coordinata {
@@ -239,8 +362,8 @@ func testAlreadyOccupied(num int, occ []int) bool { //как сравнить? �
 }
 
 //ограничиваем поиск свободных клеток только в пределах близких индексов, номеров
-func findMaxMinIndex(x, y int) (int, int) {
-	return getBoundaryMaxMin(x, y)
+func findMaxMinIndex(x, y, lenField int) (int, int) {
+	return getBoundaryMaxMin(x, y, lenField)
 }
 
 func findMaxMinRow(x, y, lenField int) (int, int) {
@@ -262,13 +385,13 @@ func findMaxMinRow(x, y, lenField int) (int, int) {
 		}
 
 	} else {
-		max, min = getBoundaryMaxMin(x, y)
+		max, min = getBoundaryMaxMin(x, y, lenField)
 	}
 
 	return max, min
 }
 
-func getBoundaryMaxMin(x, y int) (int, int) {
+func getBoundaryMaxMin(x, y, lenField int) (int, int) {
 
 	var max, min int
 
@@ -280,13 +403,15 @@ func getBoundaryMaxMin(x, y int) (int, int) {
 		min = x
 	}
 
-	max++
+	if max < lenField {
+		max++
+	}
+
 	if min != 0 {
 		min--
 	}
 
 	return max, min
-
 }
 
 func (v *VaryablesField) addPoint(row int, num []int) {
